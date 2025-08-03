@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使用者管理面板 </title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    a.btn { margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h1>使用者管理面板 </h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>屬性</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for uid, data in users.items() %}
+        <tr>
+          <td>{{ uid }}</td>
+          <td>
+            <pre>{{ data | tojson(indent=2) }}</pre>
+          </td>
+          <td>
+            <a class="btn" href="/delete?id={{ uid }}" onclick="return confirm('確定要刪除 {{ uid }} 嗎？')">🗑 刪除</a>
+            <form action="/setid" method="get" style="display:inline;">
+              <input type="hidden" name="id" value="{{ uid }}">
+              <input type="text" name="futureid" placeholder="新 ID" required>
+              <button type="submit"> 改 ID</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
