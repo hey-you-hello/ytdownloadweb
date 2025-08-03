@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成功</title>
+</head>
+<body>
+伺服器成功取得影片!您的下載網址:
+<a href="{{ url_for('getvideo', name=id + '.mp4') }}">{{ url_for('getvideo', name=id + '.mp4') }}</a><br>
+<a href="{{ url_for('download') }}">回下載</a>
+</body>
