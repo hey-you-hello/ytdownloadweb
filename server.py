@@ -546,9 +546,9 @@ function rotatePiece(piece) {
 <button onclick="document.getElementById('background-music').play()">播放音樂</button>
 </html>
 '''
-@app.route("/music.mp3")
-def music():
-    return send_file("music.mp3")
+@app.route("/<musicfile>")
+def music(musicfile):
+    return send_file(musicfile)
 
 @app.route('/codedict')
 def cd():
@@ -593,3 +593,8 @@ if __name__ == "__main__":
     
     app.run("0.0.0.0", 2388, debug=True)
     #serve(app, host='0.0.0.0', port=2388) 
+    
+
+    
+
+
