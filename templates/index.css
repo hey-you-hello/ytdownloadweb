@@ -24,8 +24,9 @@ body{
 }
 h1.morning{
     font-size: 5vw;
-    position:relative;
-    left:40vw;
+    display:flex;
+    align-items: center;
+    justify-content: center;
 }
 li{
     margin:2vw;
