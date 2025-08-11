@@ -1,4 +1,5 @@
-from flask import Flask,send_file,request,redirect,make_response,url_for,render_template
+
+from flask import Flask,send_file,request,redirect,make_response,url_for,render_template,Response
 from pytubefix import YouTube
 from uuid import uuid4
 import os
@@ -11,11 +12,15 @@ from pytubefix import YouTube
 import smtplib
 from email.mime.text import MIMEText
 from waitress import serve
+import time
+import urllib.parse
+import re
+import shlex
 users = {}
 from sys import platform
 
 app=Flask(__name__)
-
+ADMINID='a7708807080520'
 class response():
    
   ERRORCODE = {
@@ -36,7 +41,10 @@ class response():
     97:'you forgot input url!',
     'you forgot input url!':97,
     98:'system limit!!!! cant be register',
-    'system limit!!!! cant be register':98
+    'system limit!!!! cant be register':98,
+    100:'email not availble',
+    'email not availble':100
+
 
 }
   LOGINERROR=0
@@ -48,6 +56,8 @@ class response():
   REGISTERALYET=56
   ACQUIREURL=97
   SYSTEMLIMIT=98
+  EMAILNOTAVAILBLE=100
+
 def send_mail(target_mail,message,your_mail = 'pupss85319@gmail.com',your_password = 'upgm jfia zykj xonb',):
     smtp = smtplib.SMTP('smtp.gmail.com', 587)
     smtp.ehlo()
@@ -77,6 +87,11 @@ def loadUser():
 def islogin(id):
 
     return   id and id in users.keys()
+def gen():
+    while True:
+      time.sleep(random.random())
+
+      yield uuid4()+'<br>'
 def uuid4():
     txt=''
     for n in range(6):
@@ -88,7 +103,7 @@ def getid():
     if not id:
         id=request.cookies.get('id')
     return id
-def fake_d(url: str, output_path: str = ".", file_name: str = "."):
+def fake_d(url: str, output_path: str = ".", file_name: str = ".",callback=None):
     
     if url=='1':
         2/0
@@ -108,6 +123,8 @@ def handle_robot(normalresbonse,code:int):
             return response.SCUCESS
     return normalresbonse
 def download_video_youtube(url: str, output_path: str = ".", file_name: str = ".") -> str:
+    
+    
     """
     Parámetros:
     - url: str -> Enlace completo al Short (por ejemplo, https://www.youtube.com/shorts/1Fxq3DIUPuk)
@@ -123,6 +140,11 @@ def download_video_youtube(url: str, output_path: str = ".", file_name: str = ".
     video.download(filename=file_name)
     
     return yt.title
+def download_video_youtube(url: str, output_path: str = ".", file_name: str = "."):
+  yt=YouTube(url,'WEB')
+  video = yt.streams.get_highest_resolution()    
+  video.download(filename=file_name)
+  return yt.title
 if 'win' in  platform:
     print('win env , use fake download')
     download_video_youtube=fake_d
@@ -133,6 +155,26 @@ def generate_youtube_token() -> dict:
     result = cmd("npx youtube-po-token-generator")
     data = json.loads(result.stdout)
     return data
+
+def cmdforweb(command: str) -> str:
+    if not command or not command.strip():
+        return '請輸入指令'
+
+    try:
+        
+        args = shlex.split(command)
+
+        result = subprocess.run(args, capture_output=True, text=True, timeout=10)
+
+        output = result.stdout + result.stderr  
+
+        
+        #cleaned = re.sub(r'[\r\n]+', '<br>', output.strip())
+
+        return output or '(無輸出)'
+    except Exception as e:
+        return f'錯誤：{str(e)}'
+    
 def cmd(command, check=True, shell=True, capture_output=True, text=True):
 
 
@@ -152,9 +194,8 @@ def homepage():
     html=''
     if not islogin(getid()):
         return handle_robot(redirect('/login'),code=response.VERITYERROR)
-    html+=f'<h1><b>{users[getid()]["name"]}</b>您好!</h1><br>'
-    html+='<h1><a href="/download">點我下載</a></h1><br><h1><a href="/play">點我觀看</a></h1><br><h1><a href="/game">點我玩遊戲</a></h1><br><h1><a href="/logout">登出</a></h1>'
-    return handle_robot(html,response.SCUCESS)
+    
+    return handle_robot(render_template('index.html',id=getid()),response.SCUCESS)
 curent_title={}
 @app.route('/download')
 def download():
@@ -167,20 +208,14 @@ def download():
 
     url=request.args.get('url')
     if url is None:
-        return handle_robot('''
-                <h1>輸入影片網址</h1>
-<form actoin="/download" method="get">
-<input name="url" width="5000" aria-grabbed="true" type="text" size="80%" title="影片網址">
-<input name="summit" type="submit" >
-<a href="/">回首頁</a>
-</form>''',code=response.SCUCESS)
+        return handle_robot(render_template('download.html'),code=response.SCUCESS)
     try:
       print('下載開始')
       title=download_video_youtube(url,file_name=f'{getid()}.mp4')
       #title=fake_d(url,file_name=f'{getid()}.mp4')
       curent_title[getid()]=title
           #download
-      return handle_robot(f'伺服器成功取得影片!您的下載網址:<a href="/getvideo/{getid()}.mp4">{url_for("getvideo", name=f"{getid()}.mp4")}<br><a href="/download">回下載</a>',code=f'200:/getvideo/{getid()}.mp4')
+      return handle_robot(render_template('sucessdownload.html',id=getid()),code=f'200:/getvideo/{getid()}.mp4')
     except:
         return handle_robot('影片無效',code=response.URLNOTAVALIBLE)
 @app.route('/play')
@@ -216,13 +251,7 @@ def register():
         email=request.args.get('mail')
         isrobot=request.args.get('isrobot')
         if not name :
-            return handle_robot('''<form actoin="/register" method="get">
-    <h1>輸入您的名稱</h1>
-    <input name="name" width="5000" aria-grabbed="true" type="text" size="80%" title="id">
-    <h1>輸入您的email</h1>
-    <input name="mail" width="5000" aria-grabbed="true" type="mail" size="80%" title="id">
-    <input name="summit" type="submit" >
-    </form><br>''',code=response.SCUCESS)
+            return handle_robot(render_template('register.html'),code=response.SCUCESS)
         try:
             a=str(uuid4())
         except:
@@ -239,8 +268,11 @@ def register():
         users[a]={'name':name,'email':email,'id':a}
         saveUser(users)
         if not isrobot:
-            send_mail(email,"your id is:  {}".format(a))
-            return handle_robot(f'hello{name}!!  your id have be send <a href="/">首頁</a>',code=a)
+            try:
+              send_mail(email,"your id is:  {}".format(a))
+              return handle_robot(f'hello{name}!!  your id have be send <a href="/">首頁</a>',code=a)
+            except:
+                return handle_robot(response.ERRORCODE[response.EMAILNOTAVAILBLE],response.EMAILNOTAVAILBLE)
         else:
             return a
     else:
@@ -251,17 +283,7 @@ def login():
     
     if not islogin(id):
         
-        return handle_robot( '''
-    <h1>輸入id</h1>
-    <form actoin="/login" method="get">
-    <input name="uuid" width="5000" aria-grabbed="true" type="text" size="80%" title="id">
-    <input name="summit" type="submit" >
-    </form><br>
-    <h1><a href="/register">點此註冊</a></h1>
-    <h1><a href="/game">點此玩遊戲</a></h1>
-    <h1><a href="/findcode">忘記id?</a></h1>
-
-    ''',code=response.VERITYERROR)
+        return handle_robot(render_template('login.html'),code=response.VERITYERROR)
     if request.cookies.get('id') in users:
         return '您已登入!!<a href="/">首頁</a>在這<br><a href="/logout">登出</a>'
     re=make_response(redirect("/"))
@@ -284,13 +306,7 @@ def getvideo(name):
 def findcode():
     email=request.values.get('email')
     if not email:
-        return '''<h1>輸入email</h1>
-    <form actoin="/findcode" method="post">
-    <input name="email" width="5000" aria-grabbed="true" type="text" size="80%" title="id">
-    <input name="summit" type="submit" >
-    </form><br>
-    <h1><a href="/register">type to register </a></h1>
-    '''
+        return render_template('findcode.html')
     i=0
     
     for n in users.values():
@@ -573,12 +589,72 @@ def music():
 @app.route('/codedict')
 def cd():
     return json.dumps(response.ERRORCODE)
+@app.route('/setid')
+def editid():
+    wantto=request.args.get('futureid')
+    id=request.args.get('id')
+    stamp=users[id]
+    stamp['id']=wantto
+    users[wantto]=stamp
+    users.pop(id)
+    saveUser(users)
+    return redirect('/admin')
+@app.route('/delete')
+def delete():
+    id=request.args.get('id')
+    users.pop(id)
+    saveUser(users)
+    return redirect('/admin')
+@app.route('/admin')
+def admin_page():
+    r=make_response(render_template("admin.html", users=users))
+    loadUser()
+    
+    return r
+@app.route("/<fileName>")
+def file(fileName):
+    
+    try:
+      return send_file(os.path.join('templates',fileName))
+    except:
+      return Response(status=404)
+@app.route("/image/<fileName>")
+def imagefile(fileName):
+    
+    try:
+      return send_file(os.path.join('templates','image',fileName))
+    except:
+      return Response(status=404)
+@app.route('/txt')
+def txt():
+    return Response(gen(), mimetype='text/html')
+comman=[]
+@app.route('/terminal')
+def cmd():
+    global comman
+    if getid()!=ADMINID:
+        return Response(status=404)
+    com=request.args.get('指令')
+    decoded = urllib.parse.unquote(com)
+    cleaned=re.sub('\n\n',' <br> ',decoded)
+    cleaned = re.sub(r'[\x00-\x1F]+', '', cleaned)
+    if 'clean' in cleaned:
+        comman=[]
+        cleaned='echo finish'
+    try:
+      res=cmdforweb(cleaned)
+    except:
+        res='失敗'
+    comman.append((com,res))
+    return render_template('terminal.html',common=comman)
 
+    
 if __name__ == "__main__":
     
     app.run("0.0.0.0", 2388, debug=True)
-        #serve(app, host='0.0.0.0', port=2388) 
+    #serve(app, host='0.0.0.0', port=2388) 
     
 
     
+
 
